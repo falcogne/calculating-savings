@@ -1,7 +1,7 @@
 from datetime import datetime
 import pandas as pd
 
-from constants import INVESTMENT_INTEREST_RATE, CURRENT_INCOME, INCOME_INFLATION_RATE, SAVING_GOAL, CURRENT_AGE, AGE_SAVING_FOR, CURRENT_BALANCE
+from constants import ALL, RETIREMENT, KID_EDUCATION, HOUSE
 
 def flat_savings(starting_bal, years_until, monthly_input):
     i = 0
@@ -13,7 +13,7 @@ def flat_savings(starting_bal, years_until, monthly_input):
         balance *= INVESTMENT_INTEREST_RATE
         balance += monthly_input*12
         i += 1
-    data_tracking.append([i+CURRENT_AGE, balance, monthly_input])
+    data_tracking.append([i+CURRENT_AGE, balance, monthly_input, monthly_input*12])
     return balance, pd.DataFrame(data_tracking, columns=['age', 'money saved', 'monthly input', 'annual input'])
 
 
@@ -29,6 +29,7 @@ def income_proportional_savings(starting_bal, years_until, yearly_percentage):
         balance += curr_income * yearly_percentage
         curr_income *= INCOME_INFLATION_RATE
         i += 1
+    data_tracking.append([i+CURRENT_AGE, balance, yearly_percentage*curr_income/12, yearly_percentage*curr_income])
     return balance, pd.DataFrame(data_tracking, columns=['age', 'money saved', 'monthly input', 'annual input'])
 
 
@@ -50,14 +51,23 @@ def binary_search_for_goal(goal, current_age, age_saving_for, curr_balance, mone
         
         guess = (high_guess[0] + low_guess[0]) / 2
         
-        print(goal, balance, guess, high_guess, low_guess)
+        # print(goal, balance, guess, high_guess, low_guess)
     return guess, df
 
 if __name__ == "__main__":
+    INVESTMENT_INTEREST_RATE = ALL['INVESTMENT_INTEREST_RATE']
+    INCOME_INFLATION_RATE = ALL['INCOME_INFLATION_RATE']
+    CURRENT_INCOME = ALL['CURRENT_INCOME']
+
+    dct = RETIREMENT
+    SAVING_GOAL = dct["SAVING_GOAL"]
+    AGE_SAVING_FOR = dct["AGE_SAVING_FOR"]
+    CURRENT_AGE = dct["CURRENT_AGE"]
+    CURRENT_BALANCE = dct["CURRENT_BALANCE"]
 
     monthly, df = binary_search_for_goal(SAVING_GOAL, CURRENT_AGE, AGE_SAVING_FOR, CURRENT_BALANCE, money_summation_key=flat_savings, high_monthly_guess=SAVING_GOAL)
-    print(monthly)
-    print(df)
+    print(f"${monthly:,.2f}")
+    # print(df)
     percent, df = binary_search_for_goal(SAVING_GOAL, CURRENT_AGE, AGE_SAVING_FOR, CURRENT_BALANCE, money_summation_key=income_proportional_savings, high_monthly_guess=1)
     print(f"{percent :<.2%}")
-    print(df)
+    # print(df)
