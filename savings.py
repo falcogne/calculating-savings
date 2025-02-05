@@ -1,58 +1,63 @@
 from datetime import datetime
+import pandas as pd
 
-INVESTMENT_INTEREST_RATE = 1.06
-INCOME_INFLATION_RATE = 1.03
-CURRENT_INCOME = 103600
-SAVING_GOAL = 6_000_000
-DATE_SAVING_FOR =  "06/15/2067"
-CURRENT_BALANCE = 30_000
+from constants import INVESTMENT_INTEREST_RATE, CURRENT_INCOME, INCOME_INFLATION_RATE, SAVING_GOAL, CURRENT_AGE, AGE_SAVING_FOR, CURRENT_BALANCE
 
-def flat_savings(starting_bal, months_until, monthly_input):
+def flat_savings(starting_bal, years_until, monthly_input):
     i = 0
     balance = starting_bal
-    while i < months_until:
-        balance *= 1 + ((INVESTMENT_INTEREST_RATE - 1) / 12)
-        balance += monthly_input
+    # start a year in the past
+    data_tracking = [[-1+CURRENT_AGE, (starting_bal-monthly_input*12)/INVESTMENT_INTEREST_RATE, monthly_input, monthly_input*12],]
+    while i < years_until:
+        data_tracking.append([i+CURRENT_AGE, balance, monthly_input, monthly_input*12])
+        balance *= INVESTMENT_INTEREST_RATE
+        balance += monthly_input*12
         i += 1
-    return balance
+    data_tracking.append([i+CURRENT_AGE, balance, monthly_input])
+    return balance, pd.DataFrame(data_tracking, columns=['age', 'money saved', 'monthly input', 'annual input'])
 
 
-def income_proportional_savings(starting_bal, months_until, monthly_percentage):
+def income_proportional_savings(starting_bal, years_until, yearly_percentage):
     i = 0
     balance = starting_bal
     curr_income = CURRENT_INCOME
-    while i < months_until:
-        balance *= 1 + ((INVESTMENT_INTEREST_RATE - 1) / 12)
-        balance += curr_income * monthly_percentage
-        curr_income *= 1 + ((INCOME_INFLATION_RATE - 1) / 12)
+    # start a year in the past
+    data_tracking = [[-1+CURRENT_AGE, (balance-(curr_income/INCOME_INFLATION_RATE*yearly_percentage))/INVESTMENT_INTEREST_RATE, curr_income/INCOME_INFLATION_RATE*yearly_percentage/12, curr_income/INCOME_INFLATION_RATE*yearly_percentage],]
+    while i < years_until:
+        data_tracking.append([i+CURRENT_AGE, balance, yearly_percentage*curr_income/12, yearly_percentage*curr_income])
+        balance *= INVESTMENT_INTEREST_RATE
+        balance += curr_income * yearly_percentage
+        curr_income *= INCOME_INFLATION_RATE
         i += 1
-    return balance
+    return balance, pd.DataFrame(data_tracking, columns=['age', 'money saved', 'monthly input', 'annual input'])
 
 
-def binary_search_for_goal(goal, date, curr_balance, money_summation_key = flat_savings, low_monthly_guess=0, high_monthly_guess=100_000):
-    months_until = int( (date - datetime.now()).total_seconds() / 60 / 60 / 24 / (365/12) )
+def binary_search_for_goal(goal, current_age, age_saving_for, curr_balance, money_summation_key = flat_savings, low_monthly_guess=0, high_monthly_guess=100_000):
+    years_until = age_saving_for - current_age
 
-    monthly_guess = (goal - curr_balance) / months_until
-    low_guess = (low_monthly_guess, money_summation_key(curr_balance, months_until, low_monthly_guess))
-    high_guess = (high_monthly_guess, money_summation_key(curr_balance, months_until, high_monthly_guess))
+    guess = (goal - curr_balance) / years_until
+    low_guess = (low_monthly_guess, money_summation_key(curr_balance, years_until, low_monthly_guess)[0])
+    high_guess = (high_monthly_guess, money_summation_key(curr_balance, years_until, high_monthly_guess)[0])
 
     while high_guess[1] - low_guess[1] > .01:
 
-        balance = money_summation_key(curr_balance, months_until, monthly_guess)
+        balance, df = money_summation_key(curr_balance, years_until, guess)
         
         if balance - goal > 0 and balance - goal < high_guess[1] - goal:
-            high_guess = (monthly_guess, balance)
+            high_guess = (guess, balance)
         if balance - goal < 0 and balance - goal > low_guess[1] - goal:
-            low_guess = (monthly_guess, balance)
+            low_guess = (guess, balance)
         
-        monthly_guess = (high_guess[0] + low_guess[0]) / 2
+        guess = (high_guess[0] + low_guess[0]) / 2
         
-        # print(goal, balance, monthly_guess, high_guess, low_guess)
-    return monthly_guess
+        print(goal, balance, guess, high_guess, low_guess)
+    return guess, df
 
 if __name__ == "__main__":
 
-    monthly = binary_search_for_goal(SAVING_GOAL, datetime.strptime(DATE_SAVING_FOR, "%M/%d/%Y"), CURRENT_BALANCE, money_summation_key=flat_savings, high_monthly_guess=SAVING_GOAL)
+    monthly, df = binary_search_for_goal(SAVING_GOAL, CURRENT_AGE, AGE_SAVING_FOR, CURRENT_BALANCE, money_summation_key=flat_savings, high_monthly_guess=SAVING_GOAL)
     print(monthly)
-    percent = binary_search_for_goal(SAVING_GOAL, datetime.strptime(DATE_SAVING_FOR, "%M/%d/%Y"), CURRENT_BALANCE, money_summation_key=income_proportional_savings, high_monthly_guess=1)
+    print(df)
+    percent, df = binary_search_for_goal(SAVING_GOAL, CURRENT_AGE, AGE_SAVING_FOR, CURRENT_BALANCE, money_summation_key=income_proportional_savings, high_monthly_guess=1)
     print(f"{percent :<.2%}")
+    print(df)
